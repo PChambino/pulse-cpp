@@ -29,3 +29,23 @@ of a person’s cardiac pulse, dealing with artifacts’ motion, and real-time
 display of the magnified blood flow. Then, the application measurements were
 evaluated through tests with several individuals and compared to the ones
 detected by the ViTrox application and to the readings of a sphygmomanometer.
+
+
+Dependencies
+------------
+
+* OpenCV 2.4.x
+
+
+Build
+-----
+
+Using SConstruct:
+
+    scons
+
+
+Run
+---
+
+    ./pulse
