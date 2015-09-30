@@ -26,6 +26,9 @@ public:
 
     int maxSignalSize;
     double relativeMinFaceSize;
+    struct {
+        bool enabled;
+    } faceDetection;
     double fps;
     struct {
         bool magnify;

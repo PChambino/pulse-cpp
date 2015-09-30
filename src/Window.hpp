@@ -23,11 +23,13 @@ private:
     Pulse& pulse;
 
     const string WINDOW_NAME;
+    const string TRACKBAR_FACE_DETECTION_NAME;
     const string TRACKBAR_MAGNIFY_NAME;
     const string TRACKBAR_ALPHA_NAME;
 
-    int trackbarAlpha;
+    int trackbarFaceDetection;
     int trackbarMagnify;
+    int trackbarAlpha;
 
     class Fps {
     public:

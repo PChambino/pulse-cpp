@@ -14,6 +14,7 @@ Pulse::Pulse() {
     deleteFaceIn = 1;
     holdPulseFor = 30;
     fps = 0;
+    faceDetection.enabled = true;
     evm.magnify = true;
     evm.alpha = 100;
 }
@@ -40,68 +41,80 @@ void Pulse::onFrame(Mat& frame) {
     // count frames
     now = getTickCount();
 
-    // detect faces only every second
-    if ((now - lastFaceDetectionTimestamp) * 1000. / getTickFrequency() >= 1000) {
-        lastFaceDetectionTimestamp = getTickCount();
+    if (faceDetection.enabled) {
+        // detect faces only every second
+        if ((now - lastFaceDetectionTimestamp) * 1000. / getTickFrequency() >= 1000) {
+            lastFaceDetectionTimestamp = getTickCount();
 
-        PROFILE_START_DESC("detect faces");
-        // detect faces
-        cvtColor(frame, gray, CV_RGB2GRAY);
-        classifier.detectMultiScale(frame, boxes, 1.1, 3, 0, minFaceSize);
-        PROFILE_STOP();
+            PROFILE_START_DESC("detect faces");
+            // detect faces
+            cvtColor(frame, gray, CV_RGB2GRAY);
+            classifier.detectMultiScale(frame, boxes, 1.1, 3, 0, minFaceSize);
+            PROFILE_STOP();
 
-        // iterate through faces and boxes
-        if (faces.size() <= boxes.size()) {
-            PROFILE_SCOPED_DESC("equal or more boxes than faces");
-            // match each face to nearest box
-            for (size_t i = 0; i < faces.size(); i++) {
-                Face& face = faces.at(i);
-                int boxIndex = face.nearestBox(boxes);
-                face.deleteIn = deleteFaceIn;
-                face.updateBox(boxes.at(boxIndex));
-                onFace(frame, face, boxes.at(boxIndex));
-                boxes.erase(boxes.begin() + boxIndex);
-            }
-            // remaining boxes are new faces
-            for (size_t i = 0; i < boxes.size(); i++) {
-                faces.push_back(Face(nextFaceId++, boxes.at(i), deleteFaceIn));
-                onFace(frame, faces.back(), boxes.at(i));
-            }
-        } else {
-            PROFILE_SCOPED_DESC("more faces than boxes");
-            // match each box to nearest face
-            for (size_t i = 0; i < faces.size(); i++) {
-                faces.at(i).selected = false;
-            }
-            for (size_t i = 0; i < boxes.size(); i++) {
-                int faceIndex = nearestFace(boxes.at(i));
-                Face& face = faces.at(faceIndex);
-                face.selected = true;
-                face.deleteIn = deleteFaceIn;
-                face.updateBox(boxes.at(i));
-                onFace(frame, face, boxes.at(i));
-            }
-            // remaining faces are deleted or marked for deletion
-            for (size_t i = 0; i < faces.size(); i++) {
-                Face& face = faces.at(i);
-                if (!face.selected) {
-                    if (face.deleteIn <= 0) {
-                        faces.erase(faces.begin() + i);
-                        i--;
-                    } else {
-                        face.deleteIn--;
-                        onFace(frame, face, face.box);
+            // iterate through faces and boxes
+            if (faces.size() <= boxes.size()) {
+                PROFILE_SCOPED_DESC("equal or more boxes than faces");
+                // match each face to nearest box
+                for (size_t i = 0; i < faces.size(); i++) {
+                    Face& face = faces.at(i);
+                    int boxIndex = face.nearestBox(boxes);
+                    face.deleteIn = deleteFaceIn;
+                    face.updateBox(boxes.at(boxIndex));
+                    onFace(frame, face, boxes.at(boxIndex));
+                    boxes.erase(boxes.begin() + boxIndex);
+                }
+                // remaining boxes are new faces
+                for (size_t i = 0; i < boxes.size(); i++) {
+                    faces.push_back(Face(nextFaceId++, boxes.at(i), deleteFaceIn));
+                    onFace(frame, faces.back(), boxes.at(i));
+                }
+            } else {
+                PROFILE_SCOPED_DESC("more faces than boxes");
+                // match each box to nearest face
+                for (size_t i = 0; i < faces.size(); i++) {
+                    faces.at(i).selected = false;
+                }
+                for (size_t i = 0; i < boxes.size(); i++) {
+                    int faceIndex = nearestFace(boxes.at(i));
+                    Face& face = faces.at(faceIndex);
+                    face.selected = true;
+                    face.deleteIn = deleteFaceIn;
+                    face.updateBox(boxes.at(i));
+                    onFace(frame, face, boxes.at(i));
+                }
+                // remaining faces are deleted or marked for deletion
+                for (size_t i = 0; i < faces.size(); i++) {
+                    Face& face = faces.at(i);
+                    if (!face.selected) {
+                        if (face.deleteIn <= 0) {
+                            faces.erase(faces.begin() + i);
+                            i--;
+                        } else {
+                            face.deleteIn--;
+                            onFace(frame, face, face.box);
+                        }
                     }
                 }
             }
+        } else {
+            PROFILE_SCOPED_DESC("previously detected faces");
+            // use previously detected faces
+            for (size_t i = 0; i < faces.size(); i++) {
+                Face& face = faces.at(i);
+                onFace(frame, face, face.box);
+            }
         }
     } else {
-        PROFILE_SCOPED_DESC("previously detected faces");
-        // use previously detected faces
-        for (size_t i = 0; i < faces.size(); i++) {
-            Face& face = faces.at(i);
-            onFace(frame, face, face.box);
+        if (faces.size() == 0 || faces.back().box.tl() != Point(0, 0)) {
+            faces.clear();
+            Point tl = Point(0, 0);
+            Point br = Point(frame.size().width, frame.size().height);
+            Face face = Face(nextFaceId++, Rect(tl, br), deleteFaceIn);
+            face.evm.box = Rect(tl, br);
+            faces.push_back(face);
         }
+        onFace(frame, faces.back(), faces.back().box);
     }
 }
 
@@ -146,8 +159,10 @@ void Pulse::onFace(Mat& frame, Face& face, const Rect& box) {
     PROFILE_SCOPED();
 
     // only show magnified face when there is pulse
-    Mat roi = !evm.magnify || evm.magnify && face.existsPulse ?
-        frame(face.evm.box) : face.evm.out;
+    Mat roi = !evm.magnify
+        || (evm.magnify && face.existsPulse)
+        || (evm.magnify && !faceDetection.enabled)
+        ? frame(face.evm.box) : face.evm.out;
 
     // if magnification is on
     if (evm.magnify) {
@@ -207,7 +222,7 @@ void Pulse::onFace(Mat& frame, Face& face, const Rect& box) {
         face.existsPulse = false;
 
         // reset to improve BPM detection speed
-        face.reset();
+        if (faceDetection.enabled) face.reset();
     }
 
     if (face.existsPulse) {

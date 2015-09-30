@@ -12,13 +12,16 @@ using namespace cv;
 Window::Window(Pulse& pulse) :
     pulse(pulse),
     WINDOW_NAME("EVM"),
-    TRACKBAR_MAGNIFY_NAME("Magnify      "),
-    TRACKBAR_ALPHA_NAME  ("Amplification")
+    TRACKBAR_FACE_DETECTION_NAME("Face Detection"),
+    TRACKBAR_MAGNIFY_NAME       ("Magnify       "),
+    TRACKBAR_ALPHA_NAME         ("Amplification ")
 {
+    trackbarFaceDetection = pulse.faceDetection.enabled;
     trackbarMagnify = pulse.evm.magnify;
     trackbarAlpha = pulse.evm.alpha;
 
     namedWindow(WINDOW_NAME);
+    createTrackbar(TRACKBAR_FACE_DETECTION_NAME, WINDOW_NAME, &trackbarFaceDetection, 1);
     createTrackbar(TRACKBAR_MAGNIFY_NAME, WINDOW_NAME, &trackbarMagnify, 1);
     createTrackbar(TRACKBAR_ALPHA_NAME, WINDOW_NAME, &trackbarAlpha, 500);
 
@@ -32,6 +35,7 @@ void Window::update(Mat& frame) {
     PROFILE_SCOPED();
 
     // update pulse values for Eulerian video magnification
+    pulse.faceDetection.enabled = trackbarFaceDetection == 1;
     pulse.evm.magnify = trackbarMagnify == 1;
     pulse.evm.alpha = trackbarAlpha;
 
@@ -63,13 +67,16 @@ void Window::drawTrackbarValues(Mat& frame) {
 
     stringstream ss;
 
-    putText(frame, TRACKBAR_MAGNIFY_NAME,                 Point( namesX, spaceY * 2), FONT_HERSHEY_PLAIN, 1, BLUE);
-    putText(frame, (trackbarMagnify == 1 ? "ON" : "OFF"), Point(valuesX, spaceY * 2), FONT_HERSHEY_PLAIN, 1, BLUE);
+    putText(frame, TRACKBAR_FACE_DETECTION_NAME,                Point( namesX, spaceY * 2), FONT_HERSHEY_PLAIN, 1, BLUE);
+    putText(frame, (trackbarFaceDetection == 1 ? "ON" : "OFF"), Point(valuesX, spaceY * 2), FONT_HERSHEY_PLAIN, 1, BLUE);
+
+    putText(frame, TRACKBAR_MAGNIFY_NAME,                 Point( namesX, spaceY * 3), FONT_HERSHEY_PLAIN, 1, BLUE);
+    putText(frame, (trackbarMagnify == 1 ? "ON" : "OFF"), Point(valuesX, spaceY * 3), FONT_HERSHEY_PLAIN, 1, BLUE);
 
     ss.str("");
     ss << trackbarAlpha;
-    putText(frame, TRACKBAR_ALPHA_NAME, Point( namesX, spaceY * 3), FONT_HERSHEY_PLAIN, 1, BLUE);
-    putText(frame, ss.str(),            Point(valuesX, spaceY * 3), FONT_HERSHEY_PLAIN, 1, BLUE);
+    putText(frame, TRACKBAR_ALPHA_NAME, Point( namesX, spaceY * 4), FONT_HERSHEY_PLAIN, 1, BLUE);
+    putText(frame, ss.str(),            Point(valuesX, spaceY * 4), FONT_HERSHEY_PLAIN, 1, BLUE);
 }
 
 void Window::drawFps(Mat& frame) {
