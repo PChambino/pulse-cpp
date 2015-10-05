@@ -106,13 +106,17 @@ void Pulse::onFrame(Mat& frame) {
             }
         }
     } else {
-        if (faces.size() == 0 || faces.back().box.tl() != Point(0, 0)) {
+        if (faces.size() == 0 || faces.back().id != faceDetection.disabledFaceId) {
             faces.clear();
-            Point tl = Point(0, 0);
-            Point br = Point(frame.size().width, frame.size().height);
+            double r = relativeMinFaceSize;
+            int w = frame.size().width;
+            int h = frame.size().height;
+            Point tl = Point((1 - r) * w / 2, (1 - r) * h / 2);
+            Point br = Point((1 + r) * w / 2, (1 + r) * h / 2);
             Face face = Face(nextFaceId++, Rect(tl, br), deleteFaceIn);
             face.evm.box = Rect(tl, br);
             faces.push_back(face);
+            faceDetection.disabledFaceId = face.id;
         }
         onFace(frame, faces.back(), faces.back().box);
     }

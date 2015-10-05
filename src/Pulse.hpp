@@ -28,6 +28,7 @@ public:
     double relativeMinFaceSize;
     struct {
         bool enabled;
+        int disabledFaceId;
     } faceDetection;
     double fps;
     struct {
