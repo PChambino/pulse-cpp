@@ -34,7 +34,8 @@ detected by the ViTrox application and to the readings of a sphygmomanometer.
 Dependencies
 ------------
 
-* OpenCV 2.4.x
+* OpenCV 3.1.0
+* webp 0.5.1 (required by opencv3)
 
 
 Build
